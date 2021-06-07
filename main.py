@@ -18,6 +18,8 @@ Last modified June 2021
 import cv2
 import pymeanshift as pms
 import numpy as np
+import utilities as utl
+
 
 ROCK_MIN_SIZE = 50  # Minimum rock size
 
@@ -49,6 +51,8 @@ for i in range(number_regions):
 
 region = np.nonzero(region_mask)    # Gets non-zero values' locations, in the form of tuple(np.array(xi), np.array(yi))
 print(region)
+print()
+print(np.nonzero(utl.edge_extraction(region_mask)))
 
 print(f"Max region size is {max_size}, defining it as terrain...")
 
