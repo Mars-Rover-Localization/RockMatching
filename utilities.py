@@ -14,14 +14,30 @@ Last modified June 2021
 
 # Built-in modules
 import math
+from contextlib import contextmanager
 
 # Third-party modules
 import numpy as np
 from scipy import ndimage
 from skimage.measure import EllipseModel
+import cv2
 
 # Local modules
 from config import ROCK_MIN_SIZE
+
+
+def clock():
+    return cv2.getTickCount() / cv2.getTickFrequency()
+
+
+@contextmanager
+def Timer(msg):
+    print(msg)
+    start = clock()
+    try:
+        yield
+    finally:
+        print("%.4f ms" % ((clock() - start) * 1000))
 
 
 def edge_extraction(area):
