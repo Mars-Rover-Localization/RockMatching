@@ -20,7 +20,7 @@ import pymeanshift as pms
 import numpy as np
 
 # Local modules
-from config import ROCK_MIN_SIZE
+from config import ROCK_MIN_SIZE, AREA_UPPER_BOUND_RATIO
 import utilities as utl
 
 
@@ -65,10 +65,15 @@ def rock_extraction(image: str):
 
             print(f"Ellipse fitting succeeded for area {i}")  # Print method here is for inspection use, will be deprecated in release
 
-            visualized_image[tuple(edge_points.transpose())] = [0, 0, 255]
-
             point_x = region_location[0][region_size // 2]
             point_y = region_location[1][region_size // 2]
+
+            if point_x < labels_image.shape[0] * AREA_UPPER_BOUND_RATIO:
+                print(f"Area {i} in high distortion area, ignore")
+                continue
+
+            visualized_image[tuple(edge_points.transpose())] = [0, 0, 255]
+
             position = (point_y, point_x)
             visualized_image = cv2.putText(visualized_image, str(region_size), position, cv2.FONT_HERSHEY_SIMPLEX, 0.35,
                                            (255, 0, 0), 1)
