@@ -9,10 +9,11 @@ GitHub: https://github.com/Mars-Rover-Localization/RockMatching
 
 Created May 2021
 
-Last modified June 2021
+Last modified July 2021
 """
 
 # Built-in modules
+import copy
 import math
 from contextlib import contextmanager
 
@@ -81,3 +82,45 @@ def ellipse_filtering(current_index, params):
         return False
 
     return params
+
+
+def ellipse_sparsing(ellipses):
+    current_number = len(ellipses[0])
+
+    while True:
+        flag = False
+        new_ellipses = [[], [], []]
+
+        for i in range(len(ellipses[1])):
+            for j in range(i + 1, len(ellipses[1])):
+                ellipse_x = ellipses[1][i]
+                ellipse_y = ellipses[1][j]
+
+                distance = math.sqrt((ellipse_x[0] - ellipse_y[0]) ** 2 + (ellipse_x[1] - ellipse_y[1]) ** 2)
+                threshold = math.sqrt(ellipse_x[2] ** 2 + ellipse_x[3] ** 2) + math.sqrt(ellipse_y[2] ** 2 + ellipse_y[3] ** 2)
+
+                if abs(distance / threshold - 1) <= 0.45:
+                    new_edge = ellipses[2][i] + ellipses[2][j]
+                    edge_points = np.transpose(np.nonzero(new_edge))
+
+                    params = ellipse_model_fitting(edge_points)
+
+                    if params == -1:
+                        continue
+
+                    new_size = math.pi * params[2] * params[3]
+
+                    new_ellipses[0].append(new_size)
+                    new_ellipses[1].append(list(params))
+                    new_ellipses[2].append(new_edge)
+                else:   # TODO: Handle the duplicate insertion problem
+                    new_ellipses[0].append(ellipses[0][i])
+                    new_ellipses[1].append(ellipses[1][i])
+                    new_ellipses[2].append(ellipses[2][i])
+                    new_ellipses[0].append(ellipses[0][j])
+                    new_ellipses[1].append(ellipses[1][j])
+                    new_ellipses[2].append(ellipses[2][j])
+
+
+        if not flag:
+            break

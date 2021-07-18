@@ -11,7 +11,7 @@ GitHub: https://github.com/Mars-Rover-Localization/RockMatching
 
 Created May 2021
 
-Last modified June 2021
+Last modified July 2021
 """
 
 # Third-party modules
@@ -41,6 +41,8 @@ def rock_extraction(image: str):
 
     max_size = 0
 
+    extracted_rocks = [[], [], []]  # TODO: Change data structure into [tuple()]
+
     with utl.Timer("Shape analyzing..."):
         for i in range(number_regions):
             # Get a boolean image where True pixels belongs to the region
@@ -56,14 +58,18 @@ def rock_extraction(image: str):
             edge = utl.edge_extraction(region_mask)
             edge_points = np.transpose(np.nonzero(edge))
 
-            params = utl.ellipse_model_fitting(edge_points)
+            params = utl.ellipse_model_fitting(edge_points)     # params: xc, yc, a, b, c, e, theta
 
-            fit_result = utl.ellipse_filtering(i, params)
+            fit_result = utl.ellipse_filtering(i, params)       # fit_result is the same as params if succeeded
 
             if not fit_result:
                 continue
 
             print(f"Ellipse fitting succeeded for area {i}")  # Print method here is for inspection use, will be deprecated in release
+
+            extracted_rocks[0].append(region_size)
+            extracted_rocks[1].append(list(fit_result))
+            extracted_rocks[2].append(edge)
 
             visualized_image[tuple(edge_points.transpose())] = [0, 0, 255]
 
@@ -74,7 +80,7 @@ def rock_extraction(image: str):
                                            (255, 0, 0), 1)
 
     print(f"Max region size is {max_size}, defining it as terrain...")
-
+    print(extracted_rocks)
     cv2.imwrite("output/visualized.png", visualized_image)
     cv2.imshow("vis", visualized_image)
     cv2.waitKey()
