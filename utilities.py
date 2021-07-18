@@ -18,7 +18,6 @@ import math
 from contextlib import contextmanager
 
 # Third-party modules
-import numpy as np
 from scipy import ndimage
 from skimage.measure import EllipseModel
 import cv2
