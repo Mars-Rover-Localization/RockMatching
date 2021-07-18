@@ -20,6 +20,7 @@ from contextlib import contextmanager
 # Third-party modules
 from scipy import ndimage
 from skimage.measure import EllipseModel
+import numpy as np
 import cv2
 
 # Local modules
@@ -84,42 +85,36 @@ def ellipse_filtering(current_index, params):
 
 
 def ellipse_sparsing(ellipses):
-    current_number = len(ellipses[0])
+    new_ellipses = []
 
-    while True:
-        flag = False
-        new_ellipses = [[], [], []]
+    for i in range(len(ellipses)):
+        for j in range(i + 1, len(ellipses)):
+            ellipse_x = ellipses[i]
+            ellipse_y = ellipses[j]
 
-        for i in range(len(ellipses[1])):
-            for j in range(i + 1, len(ellipses[1])):
-                ellipse_x = ellipses[1][i]
-                ellipse_y = ellipses[1][j]
+            distance = math.sqrt((ellipse_x[1][0] - ellipse_y[1][0]) ** 2 + (ellipse_x[1][1] - ellipse_y[1][1]) ** 2)
+            threshold = math.sqrt(ellipse_x[1][2] ** 2 + ellipse_x[1][3] ** 2) + math.sqrt(
+                ellipse_y[1][2] ** 2 + ellipse_y[1][3] ** 2)
 
-                distance = math.sqrt((ellipse_x[0] - ellipse_y[0]) ** 2 + (ellipse_x[1] - ellipse_y[1]) ** 2)
-                threshold = math.sqrt(ellipse_x[2] ** 2 + ellipse_x[3] ** 2) + math.sqrt(ellipse_y[2] ** 2 + ellipse_y[3] ** 2)
+            if abs(distance / threshold - 1) <= 0.45:
+                new_edge = ellipse_x[2] + ellipse_y[2]
+                edge_points = np.transpose(np.nonzero(new_edge))
 
-                if abs(distance / threshold - 1) <= 0.45:
-                    new_edge = ellipses[2][i] + ellipses[2][j]
-                    edge_points = np.transpose(np.nonzero(new_edge))
+                params = ellipse_model_fitting(edge_points)
 
-                    params = ellipse_model_fitting(edge_points)
+                if params == -1:
+                    continue
 
-                    if params == -1:
-                        continue
+                new_size = math.pi * params[2] * params[3]
 
-                    new_size = math.pi * params[2] * params[3]
+                new_ellipses.append([new_size, list(params), new_edge])
+                flag = True
+            else:  # TODO: Locate reason why sparsed rocks get a larger output
+                temp = [x[0] for x in new_ellipses]
+                if ellipse_x[0] not in temp:
+                    new_ellipses.append(ellipse_x)
 
-                    new_ellipses[0].append(new_size)
-                    new_ellipses[1].append(list(params))
-                    new_ellipses[2].append(new_edge)
-                else:   # TODO: Handle the duplicate insertion problem
-                    new_ellipses[0].append(ellipses[0][i])
-                    new_ellipses[1].append(ellipses[1][i])
-                    new_ellipses[2].append(ellipses[2][i])
-                    new_ellipses[0].append(ellipses[0][j])
-                    new_ellipses[1].append(ellipses[1][j])
-                    new_ellipses[2].append(ellipses[2][j])
+                if ellipse_y[0] not in temp:
+                    new_ellipses.append(ellipse_y)
 
-
-        if not flag:
-            break
+    return new_ellipses

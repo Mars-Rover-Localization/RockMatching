@@ -41,7 +41,7 @@ def rock_extraction(image: str):
 
     max_size = 0
 
-    extracted_rocks = [[], [], []]  # TODO: Change data structure into [tuple()]
+    extracted_rocks = []  # TODO: Change data structure into [tuple()]
 
     with utl.Timer("Shape analyzing..."):
         for i in range(number_regions):
@@ -67,9 +67,7 @@ def rock_extraction(image: str):
 
             print(f"Ellipse fitting succeeded for area {i}")  # Print method here is for inspection use, will be deprecated in release
 
-            extracted_rocks[0].append(region_size)
-            extracted_rocks[1].append(list(fit_result))
-            extracted_rocks[2].append(edge)
+            extracted_rocks.append([region_size, list(fit_result), edge])
 
             visualized_image[tuple(edge_points.transpose())] = [0, 0, 255]
 
@@ -79,8 +77,11 @@ def rock_extraction(image: str):
             visualized_image = cv2.putText(visualized_image, str(region_size), position, cv2.FONT_HERSHEY_SIMPLEX, 0.35,
                                            (255, 0, 0), 1)
 
+        sparsed_rocks = utl.ellipse_sparsing(extracted_rocks)
+        print(len(extracted_rocks), len(sparsed_rocks))
+
     print(f"Max region size is {max_size}, defining it as terrain...")
-    print(extracted_rocks)
+    # print(extracted_rocks)
     cv2.imwrite("output/visualized.png", visualized_image)
     cv2.imshow("vis", visualized_image)
     cv2.waitKey()
