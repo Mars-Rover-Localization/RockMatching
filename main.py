@@ -41,7 +41,7 @@ def rock_extraction(image: str):
 
     max_size = 0
 
-    extracted_rocks = []  # TODO: Change data structure into [tuple()]
+    extracted_rocks = []
 
     with utl.Timer("Shape analyzing..."):
         for i in range(number_regions):
@@ -78,10 +78,14 @@ def rock_extraction(image: str):
                                            (255, 0, 0), 1)
 
         sparsed_rocks = utl.ellipse_sparsing(extracted_rocks)
+
         print(len(extracted_rocks), len(sparsed_rocks))
 
+        sparsed_vs = utl.visualize_rocks(original_image, sparsed_rocks)
+        cv2.imshow("sparsed", sparsed_vs)
+
     print(f"Max region size is {max_size}, defining it as terrain...")
-    # print(extracted_rocks)
+
     cv2.imwrite("output/visualized.png", visualized_image)
     cv2.imshow("vis", visualized_image)
     cv2.waitKey()

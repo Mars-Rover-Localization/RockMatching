@@ -66,7 +66,7 @@ def ellipse_model_fitting(points):
 
 def ellipse_filtering(current_index, params):
     if params == -1:
-        print(f"Ellipse fitting failed for area {current_index}")
+        # print(f"Ellipse fitting failed for area {current_index}")
         return False
 
     xc, yc, a, b, c, e, theta = params
@@ -74,11 +74,11 @@ def ellipse_filtering(current_index, params):
     ellipse_area = math.pi * a * b
 
     if ellipse_area < ROCK_MIN_SIZE * 0.5 or ellipse_area > ROCK_MIN_SIZE ** 2:
-        print(f"Ellipse shape rejected for area {current_index}, low fitting ratio")
+        # print(f"Ellipse shape rejected for area {current_index}, low fitting ratio")
         return False
 
     if e > 0.99:
-        print(f"Ellipse shape rejected for area {current_index}, too large eccentricity")
+        # print(f"Ellipse shape rejected for area {current_index}, too large eccentricity")
         return False
 
     return params
@@ -86,6 +86,7 @@ def ellipse_filtering(current_index, params):
 
 def ellipse_sparsing(ellipses):
     new_ellipses = []
+    used_ellipses = []
 
     for i in range(len(ellipses)):
         for j in range(i + 1, len(ellipses)):
@@ -103,18 +104,32 @@ def ellipse_sparsing(ellipses):
                 params = ellipse_model_fitting(edge_points)
 
                 if params == -1:
-                    continue
-
-                new_size = math.pi * params[2] * params[3]
+                    new_size = ellipse_x[0] + ellipse_y[0]
+                else:
+                    new_size = math.pi * params[2] * params[3]
 
                 new_ellipses.append([new_size, list(params), new_edge])
-                flag = True
-            else:  # TODO: Locate reason why sparsed rocks get a larger output
-                temp = [x[0] for x in new_ellipses]
+                used_ellipses.append(ellipse_x)
+                used_ellipses.append(ellipse_y)
+            else:
+                temp = [x[0] for x in new_ellipses] + [x[0] for x in used_ellipses]
                 if ellipse_x[0] not in temp:
                     new_ellipses.append(ellipse_x)
 
                 if ellipse_y[0] not in temp:
                     new_ellipses.append(ellipse_y)
 
-    return new_ellipses
+    temp = [x[0] for x in used_ellipses]
+    result = [x for x in new_ellipses if x[0] not in temp]
+
+    return result
+
+
+def visualize_rocks(img, rocks):
+    for rock in rocks:
+        edge = rock[2]
+        edge_points = np.transpose(np.nonzero(edge))
+        img[tuple(edge_points.transpose())] = [0, 0, 255]
+        position = (int(rock[1][1]), int(rock[1][0]))
+        img = cv2.putText(img, str(int(rock[0])), position, cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 0, 0), 1)
+    return img
