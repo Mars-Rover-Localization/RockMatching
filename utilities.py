@@ -13,7 +13,6 @@ Last modified July 2021
 """
 
 # Built-in modules
-import copy
 import math
 from contextlib import contextmanager
 
