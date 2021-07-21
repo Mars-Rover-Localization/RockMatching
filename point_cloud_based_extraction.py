@@ -40,10 +40,24 @@ def plane_fitting(points: np.ndarray):
     return a, b, c
 
 
+def calculate_diff(points: np.ndarray, terrain_equation: tuple):
+    """
+    Calculate the difference between point cloud data and fitted terrain plane.
+
+    :param points: n_points * 3 numpy array.
+    :param terrain_equation: tuple (a, b, c) from utl.plane_fitting()
+    :return: n_points * 1 numpy array with each element representing the corresponding difference.
+    """
+    assert len(terrain_equation) == 3, 'Incorrect terrain plane equation format'
+
+    a, b, c = terrain_equation
+    return np.fromfunction(lambda i, j: points[i, 2] - (a * points[i, 0] + b * points[i, 1] + c), (points.shape[0], 1), dtype=float)
+
+
 def locally_extreme_points(coords: np.ndarray, data: np.ndarray, threshold_abs: float, neighbourhood: int = 10,
                            lookfor='max'):
     """
-    Find local maxima of points in a pointcloud.  Ties result in both points passing through the filter.
+    Find local maxima of points in a point cloud.
     Modified based on a StackOverflow answer: https://stackoverflow.com/a/27116281/12524821
 
     :param coords: A shape (n_points, n_dims) array of point locations.
