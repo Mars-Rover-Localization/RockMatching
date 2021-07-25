@@ -132,3 +132,21 @@ def visualize_rocks(img, rocks):
         position = (int(rock[1][1]), int(rock[1][0]))
         img = cv2.putText(img, str(int(rock[0])), position, cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 0, 0), 1)
     return img
+
+
+def point_perspective_transform(M: np.ndarray, point: np.ndarray):
+    """
+    This method performs a perspective transformation on a point using a given matrix M.
+
+    :param M: 3*3 perspective transformation matrix from cv2.getPerspectiveTransform()
+    :param point: (2, ) numpy array
+    :return: 1*2 numpy array, representing transformed point (also in y, x format)
+    """
+    assert [M.shape[0], M.shape[1]] == [3, 3], 'Invalid transformation matrix'
+    assert point.shape[0] == 2, 'Invalid point format'
+
+    temp = M @ np.array([[point[0]], [point[1]], [1]])
+    print(temp)
+    dst = temp[0:2, :].transpose() / temp[2, 0]
+
+    return dst
