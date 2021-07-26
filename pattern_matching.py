@@ -68,3 +68,10 @@ def perspective_based_random_matching(src_points: np.ndarray, dst_points: np.nda
         return None
 
     return M, matched_pts, min_error
+
+
+# TODO: Fix overfitting problem
+# TODO: Efficiently filter impossible transformations
+src = np.array([[0, 0], [10, 0], [10, 5], [0, 5]])
+dst = np.array([[0, 0], [5, 0], [5, 2.5], [0, 2.5]])
+print(perspective_based_random_matching(src, dst, 50))

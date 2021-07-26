@@ -146,9 +146,9 @@ def point_perspective_transform(M: np.ndarray, point: np.ndarray) -> np.ndarray:
     assert [M.shape[0], M.shape[1]] == [3, 3], 'Invalid transformation matrix'
     assert point.shape[0] == 2, 'Invalid point format'
 
-    temp = M @ np.array([[point[0]], [point[1]], [1]])
-    print(temp)
-    dst = temp[0:2, :].transpose() / temp[2, 0]
+    temp = np.array([[point]])
+
+    dst = cv2.perspectiveTransform(temp, M)
 
     return np.ravel(dst)
 
@@ -164,24 +164,29 @@ def test_perspective_transformation(M: np.ndarray, src: np.ndarray, dst: np.ndar
     :param M: 3*3 perspective transformation matrix from cv2.getPerspectiveTransform().
     :param src: n_points * 2 numpy array with each line representing the location of each point, in format [yi, xi].
     :param dst: Same format as src.
-    :return: Matched point index pairs in format [(i, j)], average matching error; None if test failed.
+    :return: Matched point index pairs in format [(i, j)], average matching error; None if test failed .
     """
     assert [M.shape[0], M.shape[1]] == [3, 3], 'Invalid transformation matrix'
 
-    src_len, dst_len = src.shape[0], dst.shape[0]
-    assert [src_len, dst_len] == [2, 2], 'Invalid point set format'
+    src_dim, dst_dim, src_len, dst_len = src.shape[1], dst.shape[1], src.shape[0], dst.shape[0]
+    assert [src_dim, dst_dim] == [2, 2], 'Invalid point set format'
 
     pt_pairs = []
     error = 0
+
+    used_dst = []
 
     for i in range(src_len):
         src_sample_pt = src[i].astype(np.float32)
         assumed_true_pt = point_perspective_transform(M, src_sample_pt)
 
-        min_error = 10000000      # Just a large number
+        min_error = 10000000  # Just a large number
         min_error_index = 0
 
         for j in range(dst_len):
+            if j in used_dst:
+                continue
+
             current_err = calculate_point_diff(assumed_true_pt, dst[j].astype(np.float32))
 
             if current_err < min_error:
@@ -195,12 +200,12 @@ def test_perspective_transformation(M: np.ndarray, src: np.ndarray, dst: np.ndar
             # Match succeed if min_error is smaller than a threshold value
             # More experiments needed to find a suitable threshold
             pt_pairs.append((i, min_error_index))
+            used_dst.append(min_error_index)
+            error += min_error
 
-        error += min_error
-
-    if len(pt_pairs) < 5:
+    if len(pt_pairs) < 4:
         return None
 
-    error = error / len(pt_pairs)   # Calculate average error among matched points
+    error = error / len(pt_pairs)  # Calculate average error among matched points
 
     return pt_pairs, error
