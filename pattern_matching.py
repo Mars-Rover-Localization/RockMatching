@@ -46,9 +46,11 @@ def perspective_based_random_matching(src_points: np.ndarray, dst_points: np.nda
 
     for _ in range(iteration):
         src_random_pts = src_points[random.sample(range(src_len), 4)].astype(np.float32)
+        src_random_pts = utl.points_clockwise_sort(src_random_pts)
 
         for _ in range(iteration):
             dst_random_pts = dst_points[random.sample(range(dst_len), 4)].astype(np.float32)
+            dst_random_pts = utl.points_clockwise_sort(dst_random_pts)
 
             current_M = cv2.getPerspectiveTransform(src_random_pts, dst_random_pts)
 

@@ -157,6 +157,18 @@ def calculate_point_diff(pt1: np.ndarray, pt2: np.ndarray) -> float:
     return abs(np.sum(pt1 - pt2))
 
 
+def points_clockwise_sort(points: np.ndarray) -> np.ndarray:
+    """
+    Given a set of 2D points, return clockwise-sorted points.
+    :param points: A set of 2D points.
+    :return: Clockwise sorted points.
+    """
+    assert points.shape[1] == 2, 'Points should be 2D'
+
+    sorted_index = np.lexsort((points[:, 0], points[:, 1]))
+    return points[sorted_index]
+
+
 def test_perspective_transformation(M: np.ndarray, src: np.ndarray, dst: np.ndarray):
     """
     This method test a given transformation matrix between two set of points.
