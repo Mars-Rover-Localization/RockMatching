@@ -58,7 +58,7 @@ def save_labels(path: str, labels, convert=True):
     cv2.imwrite(path, res)
 
 
-def _weight_mean_color(graph, src, dst, n):
+def weight_mean_color(graph, src, dst, n):
     """
     Callback to handle merging nodes by recomputing mean color.
 
@@ -292,7 +292,7 @@ def slic_wrapper(image, n_segments=5000, compactness=30, thresh=65, visualize=Fa
         rag_graph = graph.rag_mean_color(image, labels)
 
         merged_labels = graph.merge_hierarchical(labels, rag_graph, thresh=thresh, rag_copy=False, in_place_merge=True,
-                                                 merge_func=merge_mean_color, weight_func=_weight_mean_color)
+                                                 merge_func=merge_mean_color, weight_func=weight_mean_color)
 
     number_of_regions = len(np.unique(merged_labels))
 
