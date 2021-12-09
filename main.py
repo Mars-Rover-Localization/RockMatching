@@ -15,7 +15,7 @@ Last modified July 2021
 """
 
 # Third-party modules
-import cv2
+from cv2 import cv2
 import pymeanshift as pms
 import numpy as np
 
@@ -24,19 +24,32 @@ from config import ROCK_MIN_SIZE
 import utilities as utl
 
 
-def rock_extraction(image: str):
+def rock_extraction(image: str, method: str):
+    """
+    Extract rocks using segmentation methods.
+    :param image: Image path
+    :param method: Segmentation algorithm used, ['meanshift' | 'slic']
+    :return: None
+    """
+    assert method in ['meanshift', 'slic'], 'No matching algorithm'
+
     # TODO: Using 3D point cloud reconstructed from stereo camera to extract rocks more precisely
     original_image = cv2.imread(image)
-    original_image = cv2.GaussianBlur(original_image, (5, 5), 2)
     visualized_image = original_image.copy()
 
-    with utl.Timer("Mean shift segmenting..."):
-        (segmented_image, labels_image, number_regions) = pms.segment(original_image, spatial_radius=6,
-                                                                      range_radius=4.5,
-                                                                      min_density=ROCK_MIN_SIZE)
+    if method == 'meanshift':
+        original_image = cv2.GaussianBlur(original_image, (5, 5), 2)
+
+        with utl.Timer("Mean shift segmenting..."):
+            segmented_image, labels_image, number_regions = pms.segment(original_image, spatial_radius=6,
+                                                                        range_radius=4.5,
+                                                                        min_density=ROCK_MIN_SIZE)
+    elif method == 'slic':
+        with utl.Timer("SLIC segmenting..."):
+            segmented_image, labels_image, number_regions = utl.slic_wrapper(original_image)
 
     cv2.imwrite("output/seg.png", segmented_image)
-    cv2.imwrite("output/label.png", labels_image)
+    utl.save_labels("output/label.png", labels_image)
     print(f"Regions segmented: {number_regions}")
 
     max_size = 0
@@ -95,4 +108,4 @@ def rock_extraction(image: str):
 
 if __name__ == '__main__':
     print(__doc__)
-    rock_extraction("sample/Mars_Perseverance_NLF_0102_0676000820_801ECM_N0040372NCAM03101_01_295J.png")
+    rock_extraction("sample/Mars_Perseverance_NLF_0102_0676000820_801ECM_N0040372NCAM03101_01_295J.png", 'slic')

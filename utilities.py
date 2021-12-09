@@ -15,29 +15,90 @@ Last modified July 2021
 # Built-in modules
 import math
 from contextlib import contextmanager
+import time
 
 # Third-party modules
 from scipy import ndimage
+from skimage.segmentation import slic, mark_boundaries
 from skimage.measure import EllipseModel
+from skimage.future import graph
 import numpy as np
-import cv2
+from cv2 import cv2
 
 # Local modules
 from config import ROCK_MIN_SIZE
 
 
-def clock():
-    return cv2.getTickCount() / cv2.getTickFrequency()
-
-
 @contextmanager
 def Timer(msg):
     print(msg)
-    start = clock()
+    start = time.perf_counter()
     try:
         yield
     finally:
-        print("%.4f ms" % ((clock() - start) * 1000))
+        print("%.4f ms" % ((time.perf_counter() - start) * 1000))
+
+
+def save_labels(path: str, labels, convert=True):
+    """
+    Save labels generated from segmentation methods for further inspection.
+    Labels can be converted to 0 ~ 255 range optionally.
+
+    :param path: Save file path
+    :param labels: Labels
+    :param convert: Whether convert label to 0 ~ 255 range
+    :return: None
+    """
+    if convert:
+        res = cv2.normalize(labels, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    else:
+        res = labels
+
+    cv2.imwrite(path, res)
+
+
+def _weight_mean_color(graph, src, dst, n):
+    """
+    Callback to handle merging nodes by recomputing mean color.
+
+    The method expects that the mean color of `dst` is already computed.
+
+    Parameters
+    ----------
+    graph : RAG
+        The graph under consideration.
+    src, dst : int
+        The vertices in `graph` to be merged.
+    n : int
+        A neighbor of `src` or `dst` or both.
+
+    Returns
+    -------
+    data : dict
+        A dictionary with the `"weight"` attribute set as the absolute
+        difference of the mean color between node `dst` and `n`.
+    """
+
+    diff = graph.nodes[dst]['mean color'] - graph.nodes[n]['mean color']
+    diff = np.linalg.norm(diff)
+    return {'weight': diff}
+
+
+def merge_mean_color(graph, src, dst):
+    """Callback called before merging two nodes of a mean color distance graph.
+
+    This method computes the mean color of `dst`.
+
+    Parameters
+    ----------
+    graph : RAG
+        The graph under consideration.
+    src, dst : int
+        The vertices in `graph` to be merged.
+    """
+    graph.nodes[dst]['total color'] += graph.nodes[src]['total color']
+    graph.nodes[dst]['pixel count'] += graph.nodes[src]['pixel count']
+    graph.nodes[dst]['mean color'] = (graph.nodes[dst]['total color'] / graph.nodes[dst]['pixel count'])
 
 
 def edge_extraction(area):
@@ -150,3 +211,32 @@ def point_perspective_transform(M: np.ndarray, point: np.ndarray):
     dst = temp[0:2, :].transpose() / temp[2, 0]
 
     return dst
+
+
+def slic_wrapper(image, n_segments=5000, compactness=30, thresh=65, visualize=False):
+    with Timer('Segmenting...'):
+        labels = slic(image, n_segments=n_segments, compactness=compactness, start_label=1)
+
+    with Timer('Merging...'):
+        rag_graph = graph.rag_mean_color(image, labels)
+
+        merged_labels = graph.merge_hierarchical(labels, rag_graph, thresh=thresh, rag_copy=False, in_place_merge=True,
+                                                 merge_func=merge_mean_color, weight_func=_weight_mean_color)
+
+    number_of_regions = len(np.unique(merged_labels))
+
+    segmented_image = np.empty(image.shape, dtype=np.uint8)
+
+    for index in range(number_of_regions):
+        region_index = np.where(merged_labels == index)
+
+        segmented_image[region_index] = np.average(image[region_index], axis=0)
+
+    if visualize:
+        label_img = mark_boundaries(image, labels)
+        merged_label_img = mark_boundaries(image, merged_labels)
+        vis = np.hstack((label_img, merged_label_img))
+        cv2.imshow('res', vis)
+        cv2.waitKey()
+
+    return segmented_image, merged_labels, number_of_regions
