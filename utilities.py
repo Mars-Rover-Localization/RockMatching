@@ -16,6 +16,7 @@ Last modified July 2021
 import math
 from contextlib import contextmanager
 import time
+import random
 
 # Third-party modules
 from scipy import ndimage
@@ -195,22 +196,92 @@ def visualize_rocks(img, rocks):
     return img
 
 
-def point_perspective_transform(M: np.ndarray, point: np.ndarray):
+def point_perspective_transform(M: np.ndarray, point: np.ndarray) -> np.ndarray:
     """
     This method performs a perspective transformation on a point using a given matrix M.
 
-    :param M: 3*3 perspective transformation matrix from cv2.getPerspectiveTransform()
-    :param point: (2, ) numpy array
-    :return: 1*2 numpy array, representing transformed point (also in y, x format)
+    :param M: 3*3 perspective transformation matrix from cv2.getPerspectiveTransform().
+    :param point: (2, ) numpy array.
+    :return: (2, ) numpy array, representing transformed point (also in y, x format).
     """
     assert [M.shape[0], M.shape[1]] == [3, 3], 'Invalid transformation matrix'
     assert point.shape[0] == 2, 'Invalid point format'
 
-    temp = M @ np.array([[point[0]], [point[1]], [1]])
-    print(temp)
-    dst = temp[0:2, :].transpose() / temp[2, 0]
+    temp = np.array([[point]])
 
-    return dst
+    dst = cv2.perspectiveTransform(temp, M)
+
+    return np.ravel(dst)
+
+
+def calculate_point_diff(pt1: np.ndarray, pt2: np.ndarray) -> float:
+    return abs(np.sum(pt1 - pt2))
+
+
+def points_clockwise_sort(points: np.ndarray) -> np.ndarray:
+    """
+    Given a set of 2D points, return clockwise-sorted points.
+    :param points: A set of 2D points.
+    :return: Clockwise sorted points.
+    """
+    assert points.shape[1] == 2, 'Points should be 2D'
+
+    sorted_index = np.lexsort((points[:, 0], points[:, 1]))
+    return points[sorted_index]
+
+
+def test_perspective_transformation(M: np.ndarray, src: np.ndarray, dst: np.ndarray):
+    """
+    This method test a given transformation matrix between two set of points.
+
+    :param M: 3*3 perspective transformation matrix from cv2.getPerspectiveTransform().
+    :param src: n_points * 2 numpy array with each line representing the location of each point, in format [yi, xi].
+    :param dst: Same format as src.
+    :return: Matched point index pairs in format [(i, j)], average matching error; None if test failed .
+    """
+    assert [M.shape[0], M.shape[1]] == [3, 3], 'Invalid transformation matrix'
+
+    src_dim, dst_dim, src_len, dst_len = src.shape[1], dst.shape[1], src.shape[0], dst.shape[0]
+    assert [src_dim, dst_dim] == [2, 2], 'Invalid point set format'
+
+    pt_pairs = []
+    error = 0
+
+    used_dst = []
+
+    for i in range(src_len):
+        src_sample_pt = src[i].astype(np.float32)
+        assumed_true_pt = point_perspective_transform(M, src_sample_pt)
+
+        min_error = 10000000  # Just a large number
+        min_error_index = 0
+
+        for j in range(dst_len):
+            if j in used_dst:
+                continue
+
+            current_err = calculate_point_diff(assumed_true_pt, dst[j].astype(np.float32))
+
+            if current_err < min_error:
+                min_error = current_err
+                min_error_index = j
+
+                if current_err <= 0.005:
+                    break
+
+        if min_error <= 50:
+            # Match succeed if min_error is smaller than a threshold value
+            # More experiments needed to find a suitable threshold
+            pt_pairs.append((i, min_error_index))
+            used_dst.append(min_error_index)
+            error += min_error
+
+    if len(pt_pairs) < 4:
+        return None
+
+    error = error / len(pt_pairs)  # Calculate average error among matched points
+
+    return pt_pairs, error
 
 
 def slic_wrapper(image, n_segments=5000, compactness=30, thresh=65, visualize=False):
