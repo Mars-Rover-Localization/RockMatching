@@ -3,7 +3,7 @@ THIS REPO IS STILL IN ACTIVE DEVELOPMENT.
 
 Rock extraction and matching for Mars terrains, serving as a reliable compensation for multi-veiw matching.
 
-Rock extraction is currently implemented by pymeanshift, a Python wrapper of Mean Shift algorithm. GPU acceleration may be added in the future.
+Rock extraction is currently implemented using segmentation algorithm (currently SLIC and MeanShift).
 
 Copyleft Lang Zhou, zhoulang731@tongji.edu.cn
 
@@ -11,7 +11,7 @@ GitHub: https://github.com/Mars-Rover-Localization/RockMatching
 
 Created May 2021
 
-Last modified July 2021
+Last modified December 2021
 """
 
 # Third-party modules
@@ -108,4 +108,5 @@ def rock_extraction(image: str, method: str):
 
 if __name__ == '__main__':
     print(__doc__)
+
     rock_extraction("sample/Mars_Perseverance_NLF_0102_0676000820_801ECM_N0040372NCAM03101_01_295J.png", 'slic')

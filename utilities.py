@@ -9,14 +9,13 @@ GitHub: https://github.com/Mars-Rover-Localization/RockMatching
 
 Created May 2021
 
-Last modified July 2021
+Last modified December 2021
 """
 
 # Built-in modules
 import math
 from contextlib import contextmanager
 import time
-import random
 
 # Third-party modules
 from scipy import ndimage
