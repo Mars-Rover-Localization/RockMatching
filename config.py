@@ -15,7 +15,7 @@ Last modified June 2021
 """
 
 
-ROCK_MIN_SIZE = 50  # Minimum rock size
+ROCK_MIN_SIZE = 1000  # Minimum rock size
 
 # Suppose the image is a m*n matrix, the program will only analyze part of the whole image since distortion will be
 # high in upper area of the image.

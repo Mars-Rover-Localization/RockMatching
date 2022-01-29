@@ -133,7 +133,7 @@ def ellipse_filtering(current_index, params):
 
     ellipse_area = math.pi * a * b
 
-    if ellipse_area < ROCK_MIN_SIZE * 0.5 or ellipse_area > ROCK_MIN_SIZE ** 2:
+    if ellipse_area < ROCK_MIN_SIZE:  # Temporarily remove maximum size detection
         # print(f"Ellipse shape rejected for area {current_index}, low fitting ratio")
         return False
 
@@ -164,7 +164,8 @@ def ellipse_sparsing(ellipses):
                 params = ellipse_model_fitting(edge_points)
 
                 if params == -1:
-                    new_size = ellipse_x[0] + ellipse_y[0]
+                    # new_size = ellipse_x[0] + ellipse_y[0]
+                    continue    # Too extreme?
                 else:
                     new_size = math.pi * params[2] * params[3]
 

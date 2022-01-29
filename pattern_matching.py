@@ -1,7 +1,17 @@
 from cv2 import cv2
 import numpy as np
-import random
 import utilities as utl
+
+import random
+import math
+import matplotlib.pyplot as plt
+from ICP.icp import icp, point_based_matching
+
+"""
+Last edited January 2022: Added Iterative Closest Point based matching method, this algorithm has huge advantage over our previous methods.
+
+This ICP algorithm is originally implemented by @richardos at GitHub (https://github.com/richardos/icp), for more copyright info, please refer to ICP/LICENSE
+"""
 
 
 def find_corner_point(area, identifier):
@@ -72,8 +82,71 @@ def perspective_based_random_matching(src_points: np.ndarray, dst_points: np.nda
     return M, matched_pts, min_error
 
 
-# TODO: Fix overfitting problem
-# TODO: Efficiently filter impossible transformations
-src = np.array([[0, 0], [10, 0], [10, 5], [0, 5]])
-dst = np.array([[0, 0], [5, 0], [5, 2.5], [0, 2.5]])
-print(perspective_based_random_matching(src, dst, 50))
+def icp_wrapper(reference_points: np.ndarray, points_to_be_aligned: np.ndarray, verbose=False):
+    assert reference_points.shape[1] == 2 and points_to_be_aligned.shape[1] == 2, 'Invalid data shape'
+
+    transformation_history, aligned_points = icp(reference_points, points_to_be_aligned, verbose=verbose)
+
+    registration_result = []
+
+    for index in range(len(aligned_points)):
+        registration_result.append((points_to_be_aligned[index], aligned_points[index]))
+
+    rotation, t_x, t_y = point_based_matching(registration_result)
+
+    return rotation, t_x, t_y
+
+
+def icp_example():
+    np.random.seed(12345)
+
+    # create a set of points to be the reference for ICP
+    xs = np.random.random_sample((50, 1))
+    ys = np.random.random_sample((50, 1))
+    reference_points = np.hstack((xs, ys))
+
+    # transform the set of reference points to create a new set of
+    # points for testing the ICP implementation
+
+    # 1. remove some points
+    points_to_be_aligned = reference_points[1:47]
+
+    # 2. apply rotation to the new point set
+    theta = math.radians(12)
+    c, s = math.cos(theta), math.sin(theta)
+    rot = np.array([[c, -s],
+                    [s, c]])
+    points_to_be_aligned = np.dot(points_to_be_aligned, rot)
+
+    # 3. apply translation to the new point set
+    true_tx, true_ty = np.random.random_sample(), np.random.random_sample()
+    points_to_be_aligned += np.array([true_tx, true_ty])
+
+    # run icp
+    transformation_history, aligned_points = icp(reference_points, points_to_be_aligned, verbose=True)
+
+    registration_result = []
+
+    for index in range(len(aligned_points)):
+        registration_result.append((points_to_be_aligned[index], aligned_points[index]))
+
+    rotation, t_x, t_y = point_based_matching(registration_result)
+
+    print("True transformation:")
+    print(theta, true_tx, true_ty)
+
+    print("Estimated transformation:")
+    print(rotation, t_x, t_y)
+
+    # show results
+    plt.plot(reference_points[:, 0], reference_points[:, 1], 'rx', label='reference points')
+    plt.plot(points_to_be_aligned[:, 0], points_to_be_aligned[:, 1], 'b1', label='points to be aligned')
+    plt.plot(aligned_points[:, 0], aligned_points[:, 1], 'g+', label='aligned points')
+    plt.legend()
+    plt.show()
+
+
+if __name__ == '__main__':
+    src = np.array([[0, 0], [10, 0], [10, 5], [0, 5]])
+    dst = np.array([[0, 0], [5, 0], [5, 2.5], [0, 2.5]])
+    print(perspective_based_random_matching(src, dst, 50))

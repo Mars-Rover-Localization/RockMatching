@@ -109,4 +109,4 @@ def rock_extraction(image: str, method: str):
 if __name__ == '__main__':
     print(__doc__)
 
-    rock_extraction("sample/Mars_Perseverance_NLF_0102_0676000820_801ECM_N0040372NCAM03101_01_295J.png", 'slic')
+    rock_extraction("sample/4-1.png", 'slic')
