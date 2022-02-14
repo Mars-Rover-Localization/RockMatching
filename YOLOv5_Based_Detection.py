@@ -1,5 +1,5 @@
 """
-This script containing method for crater detection using YOLOv5 framework
+This script contains method for crater detection using YOLOv5 framework.
 Copyright 2022 Lincoln Zhou, zhoulang731@tongji.edu.cn
 """
 
@@ -28,11 +28,10 @@ def crater_detection(images, weight_path: str, yolov5_path: str):
 
     detection_result = []
 
-    for image in images:
-        output = model(image)
+    results = model(images, size=1280).pandas().xyxy
 
-        result = output.pandas().xyxy[0]
-        # print(result)
+    for index in range(len(images)):
+        result = results[index]
 
         current_image_result = []
 
