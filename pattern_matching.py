@@ -1,152 +1,100 @@
-from cv2 import cv2
 import numpy as np
 import utilities as utl
 
-import random
-import math
 import matplotlib.pyplot as plt
-from ICP.icp import icp, point_based_matching
+import matplotlib
+import open3d as o3d
+from YOLOv5_Based_Detection import crater_detection
+
+from typing import Tuple
+import math
 
 """
-Last edited January 2022: Added Iterative Closest Point based matching method, this algorithm has huge advantage over our previous methods.
+Last edited February 2022: ICP matching implementation is switched to Open3D (http://www.open3d.org/)
 
-This ICP algorithm is originally implemented by @richardos at GitHub (https://github.com/richardos/icp), for more copyright info, please refer to ICP/LICENSE
+Good initial guess is EXTREMELY CRUCIAL for ICP algorithm, please refer to the wrapper method for more info.
 """
 
 
-def find_corner_point(area, identifier):
+def points_on_circumference(center: Tuple[float, float] = (0.0, 0.0), r: float = 50.0, n: int = 100):
+    return [
+        (
+            center[0] + (math.cos(2 * math.pi / n * x) * r),  # x
+            center[1] + (math.sin(2 * math.pi / n * x) * r),  # y
+        )
+        for x in range(0, n + 1)
+    ]
+
+
+def expand_points(location, params):
+    assert len(location) == len(params), 'Inconsistent input data'
+
+    res_pts = []
+
+    for index in range(len(location)):
+        width, height = params[index]
+        avg_radius = (width + height) / 4
+
+        n_points = int(avg_radius * 10)
+
+        res_pts.extend(points_on_circumference(location[index], avg_radius, n_points if n_points > 10 else 10))
+
+    return np.array(res_pts)
+
+
+def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: Tuple[float, float, float] = None, max_dist: int = 100, max_iter: int = 2000):
     """
-    This method is part of a dismissed matching idea, could be deprecated in the future.
+    Wrapper method for Open3D library ICP implementation.
 
-    :param area: numpy.ndarray, area containing interest points
-    :param identifier: int, specific value distinguishing interest points from other pixels
-    :return: numpy.ndarray, corner point's position, in format of [x, y]
+    :param template: Reference points, in form of (N, 2) ndarray
+    :param data: Points to be aligned, in form of (M, 2) ndarray
+    :param initial_values: (t_X, t_Y, rotation) # TODO: Complete initial guess for rotation
+    :param max_dist: Maximum correspondence distance, recommended not to set too small
+    :param max_iter: Max iterations performs, too high value is mostly unnecessary
+    :return: None
     """
-    mask = (area == identifier)
-    coordinates = np.nonzero(mask)
+    pcd1, pcd2 = o3d.geometry.PointCloud(), o3d.geometry.PointCloud()
 
-    distance = [coordinates[0][index] ** 2 + coordinates[1][index] ** 2 for index in range(len(coordinates[0]))]
-    min_distance_index = distance.index(min(distance))
+    pcd1.points = o3d.utility.Vector3dVector(np.hstack((template, np.zeros((template.shape[0], 1)))))
+    pcd2.points = o3d.utility.Vector3dVector(np.hstack((data, np.zeros((data.shape[0], 1)))))
 
-    return np.transpose(coordinates)[min_distance_index]
+    initial_guess = np.identity(4)
 
+    if initial_values:
+        initial_guess[0, 3] = initial_values[0]     # x translation
+        initial_guess[1, 3] = initial_values[1]    # y translation
 
-def perspective_based_random_matching(src_points: np.ndarray, dst_points: np.ndarray, iteration: int):
-    """
-    This method matches two set of points using an algorithm we named Perspective Based Random Matching.
+    with utl.Timer('ICP Matching...'):
+        reg_p2p = o3d.pipelines.registration.registration_icp(
+            pcd2, pcd1, max_dist, initial_guess,
+            o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+            o3d.pipelines.registration.ICPConvergenceCriteria(max_iteration=max_iter)
+        )
 
-    For consistency with cv2.getPerspectiveTransform(), all points in this method is formatted as [col, row].
+    print(reg_p2p)
+    print("Transformation is:")
+    print(reg_p2p.transformation)
 
-    For more details, please refer to our future paper.
+    transformation = reg_p2p.transformation
+    aligned = np.array(pcd2.transform(transformation).points)[:, :2]
 
-    :param src_points: n_points * 2 numpy array with each line representing the location of each point, in format [yi, xi].
-    :param dst_points: Same format as src_points
-    :param iteration: Iteration times. Larger iteration times may improve the precision of the result, while taking more computing time.
-    :return: Perspective transformation matrix
-    """
-    assert iteration > 0, 'Invalid iteration parameter'
-
-    src_len, dst_len = src_points.shape[0], dst_points.shape[0]
-    assert [src_len, dst_len] >= [4, 4], 'Too few points for perspective estimation'
-
-    M = np.zeros((3, 3))
-    min_error = 10000000
-    matched_pts = []
-    flag = False
-
-    for _ in range(iteration):
-        src_random_pts = src_points[random.sample(range(src_len), 4)].astype(np.float32)
-        src_random_pts = utl.points_clockwise_sort(src_random_pts)
-
-        for _ in range(iteration):
-            dst_random_pts = dst_points[random.sample(range(dst_len), 4)].astype(np.float32)
-            dst_random_pts = utl.points_clockwise_sort(dst_random_pts)
-
-            current_M = cv2.getPerspectiveTransform(src_random_pts, dst_random_pts)
-
-            try:
-                pt_pairs, error = utl.test_perspective_transformation(current_M, src_points, dst_points)
-            except TypeError:
-                continue
-
-            if error < min_error:
-                flag = True
-
-                M = current_M
-                min_error = error
-                matched_pts = pt_pairs
-
-    if not flag:
-        return None
-
-    return M, matched_pts, min_error
-
-
-def icp_wrapper(reference_points: np.ndarray, points_to_be_aligned: np.ndarray, verbose=False):
-    assert reference_points.shape[1] == 2 and points_to_be_aligned.shape[1] == 2, 'Invalid data shape'
-
-    transformation_history, aligned_points = icp(reference_points, points_to_be_aligned, verbose=verbose)
-
-    registration_result = []
-
-    for index in range(len(aligned_points)):
-        registration_result.append((points_to_be_aligned[index], aligned_points[index]))
-
-    rotation, t_x, t_y = point_based_matching(registration_result)
-
-    return rotation, t_x, t_y
-
-
-def icp_example():
-    np.random.seed(12345)
-
-    # create a set of points to be the reference for ICP
-    xs = np.random.random_sample((50, 1))
-    ys = np.random.random_sample((50, 1))
-    reference_points = np.hstack((xs, ys))
-
-    # transform the set of reference points to create a new set of
-    # points for testing the ICP implementation
-
-    # 1. remove some points
-    points_to_be_aligned = reference_points[1:47]
-
-    # 2. apply rotation to the new point set
-    theta = math.radians(12)
-    c, s = math.cos(theta), math.sin(theta)
-    rot = np.array([[c, -s],
-                    [s, c]])
-    points_to_be_aligned = np.dot(points_to_be_aligned, rot)
-
-    # 3. apply translation to the new point set
-    true_tx, true_ty = np.random.random_sample(), np.random.random_sample()
-    points_to_be_aligned += np.array([true_tx, true_ty])
-
-    # run icp
-    transformation_history, aligned_points = icp(reference_points, points_to_be_aligned, verbose=True)
-
-    registration_result = []
-
-    for index in range(len(aligned_points)):
-        registration_result.append((points_to_be_aligned[index], aligned_points[index]))
-
-    rotation, t_x, t_y = point_based_matching(registration_result)
-
-    print("True transformation:")
-    print(theta, true_tx, true_ty)
-
-    print("Estimated transformation:")
-    print(rotation, t_x, t_y)
-
-    # show results
-    plt.plot(reference_points[:, 0], reference_points[:, 1], 'rx', label='reference points')
-    plt.plot(points_to_be_aligned[:, 0], points_to_be_aligned[:, 1], 'b1', label='points to be aligned')
-    plt.plot(aligned_points[:, 0], aligned_points[:, 1], 'g+', label='aligned points')
+    matplotlib.use('tkagg')
+    plt.scatter(*template.transpose(), label='Template')
+    plt.scatter(*data.transpose(), label='Data')
+    plt.scatter(*aligned.transpose(), label='Aligned')
+    plt.axis('square')
     plt.legend()
+    plt.ylim(plt.gca().get_ylim()[::-1])
     plt.show()
 
 
 if __name__ == '__main__':
-    src = np.array([[0, 0], [10, 0], [10, 5], [0, 5]])
-    dst = np.array([[0, 0], [5, 0], [5, 2.5], [0, 2.5]])
-    print(perspective_based_random_matching(src, dst, 50))
+    best_pt_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater\runs\train\exp5\weights\best.pt"
+    yolov5_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater"
+
+    location, params = crater_detection(["test/h.png", "test/l.png"], weight_path=best_pt_path, yolov5_path=yolov5_path)
+
+    template = expand_points(location[0], params[0])
+    data = expand_points(location[1], params[1])
+
+    open3d_icp_wrapper(template, data, initial_values=(500, 400, 0))

@@ -15,7 +15,7 @@ def crater_detection(images, weight_path: str, yolov5_path: str):
     :param images: list of image paths (str)
     :param weight_path: YOLOv5 model parameters file's path
     :param yolov5_path: YOLOv5 folder path
-    :return: [[[(center_x, center_y), (width, height)], ..], ..]
+    :return: [[[center_x, center_y]]], [[[width, height]]]
     """
     assert len(images) >= 1, 'No valid images'
 
@@ -26,14 +26,16 @@ def crater_detection(images, weight_path: str, yolov5_path: str):
         print("Model file cannot be loaded, stop.")
         return
 
-    detection_result = []
+    detection_result_loc = []
+    detection_result_parm = []
 
     results = model(images, size=1280).pandas().xyxy
 
     for index in range(len(images)):
         result = results[index]
 
-        current_image_result = []
+        current_image_result_loc = []
+        current_image_result_parm = []
 
         for row in result.itertuples(index=True, name='Pandas'):
             center_x = int((row.xmin + row.xmax) / 2)
@@ -42,11 +44,13 @@ def crater_detection(images, weight_path: str, yolov5_path: str):
             width = row.xmax - row.xmin
             height = row.ymax - row.ymin
 
-            current_image_result.append([(center_x, center_y), (width, height)])
+            current_image_result_loc.append([center_x, center_y])
+            current_image_result_parm.append([width, height])
 
-        detection_result.append(current_image_result)
+        detection_result_loc.append(current_image_result_loc)
+        detection_result_parm.append(current_image_result_parm)
 
-    return detection_result
+    return detection_result_loc, detection_result_parm
 
 
 if __name__ == '__main__':
