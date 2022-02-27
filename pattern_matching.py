@@ -1,10 +1,11 @@
-import numpy as np
 import utilities as utl
+from YOLOv5_Based_Detection import crater_detection
 
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 import open3d as o3d
-from YOLOv5_Based_Detection import crater_detection
+from cv2 import cv2
 
 from typing import Tuple
 import math
@@ -79,12 +80,18 @@ def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: T
     aligned = np.array(pcd2.transform(transformation).points)[:, :2]
 
     matplotlib.use('tkagg')
-    plt.scatter(*template.transpose(), label='Template')
-    plt.scatter(*data.transpose(), label='Data')
-    plt.scatter(*aligned.transpose(), label='Aligned')
+    img = cv2.imread("test/h.png")
+
+    plt.scatter(*template.transpose(), label='Template', s=10)
+    plt.scatter(*data.transpose(), label='Data', s=10)
+    plt.scatter(*aligned.transpose(), label='Aligned', s=10)
+
+    plt.imshow(img, aspect='equal')
     plt.axis('square')
     plt.legend()
-    plt.ylim(plt.gca().get_ylim()[::-1])
+    plt.ylim(img.shape[0], 0)
+    plt.xlim(0, img.shape[1])
+    # plt.ylim(plt.gca().get_ylim()[::-1])
     plt.show()
 
 
