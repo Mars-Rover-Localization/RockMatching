@@ -43,7 +43,7 @@ def expand_points(location, params):
     return np.array(res_pts)
 
 
-def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: Tuple[float, float, float] = None, max_dist: int = 100, max_iter: int = 2000):
+def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: Tuple[float, float, float] = None, max_dist: int = 100, max_iter: int = 2000, vis: bool = True):
     """
     Wrapper method for Open3D library ICP implementation.
 
@@ -52,6 +52,7 @@ def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: T
     :param initial_values: (t_X, t_Y, rotation) # TODO: Complete initial guess for rotation
     :param max_dist: Maximum correspondence distance, recommended not to set too small
     :param max_iter: Max iterations performs, too high value is mostly unnecessary
+    :param vis: If perform visualization, default as True
     :return: None
     """
     pcd1, pcd2 = o3d.geometry.PointCloud(), o3d.geometry.PointCloud()
@@ -79,29 +80,48 @@ def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: T
     transformation = reg_p2p.transformation
     aligned = np.array(pcd2.transform(transformation).points)[:, :2]
 
-    matplotlib.use('tkagg')
-    img = cv2.imread("test/h.png")
+    if vis:
+        matplotlib.use('tkagg')
 
-    plt.scatter(*template.transpose(), label='Template', s=10)
-    plt.scatter(*data.transpose(), label='Data', s=10)
-    plt.scatter(*aligned.transpose(), label='Aligned', s=10)
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16, 8))
+        fig.suptitle("Detection & Matching Result")
 
-    plt.imshow(img, aspect='equal')
-    plt.axis('square')
-    plt.legend()
-    plt.ylim(img.shape[0], 0)
-    plt.xlim(0, img.shape[1])
-    # plt.ylim(plt.gca().get_ylim()[::-1])
-    plt.show()
+        img1 = cv2.imread("test/h.png")
+        img2 = cv2.imread("test/l.png")
+
+        ax1.scatter(*template.transpose(), label='Template', s=5, c='blue')
+        ax2.scatter(*data.transpose(), label='Data', s=5, c='red', marker='.')
+        ax3.scatter(*aligned.transpose(), label='Aligned', s=5, c='green', marker='_')
+
+        ax1.imshow(img1, aspect='equal')
+        ax2.imshow(img2, aspect='equal')
+        ax3.imshow(img1, aspect='equal')
+
+        ax1.set_title('Template Craters')
+        ax2.set_title('Craters to Be Aligned')
+        ax3.set_title('Aligned Craters')
+
+        plt.axis('square')
+        plt.ylim(img1.shape[0], 0)
+        plt.xlim(0, img1.shape[1])
+
+        fig.tight_layout()
+
+        ax1.axis('off')
+        ax2.axis('off')
+        ax3.axis('off')
+        plt.savefig('output/vis.png', dpi=400)
+        plt.show()
 
 
 if __name__ == '__main__':
     best_pt_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater\runs\train\exp5\weights\best.pt"
     yolov5_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater"
 
-    location, params = crater_detection(["test/h.png", "test/l.png"], weight_path=best_pt_path, yolov5_path=yolov5_path)
+    with utl.Timer("Detecting Craters..."):
+        location, params = crater_detection(["test/h.png", "test/l.png"], weight_path=best_pt_path, yolov5_path=yolov5_path)
 
     template = expand_points(location[0], params[0])
     data = expand_points(location[1], params[1])
 
-    open3d_icp_wrapper(template, data, initial_values=(500, 400, 0))
+    open3d_icp_wrapper(template, data, initial_values=(500, 400, 0), vis=True)
