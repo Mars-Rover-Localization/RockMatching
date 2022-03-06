@@ -24,6 +24,9 @@ from skimage.measure import EllipseModel
 from skimage.future import graph
 import numpy as np
 from cv2 import cv2
+import matplotlib.pyplot as plt
+import open3d as o3d
+import seaborn as sns
 
 # Local modules
 from config import ROCK_MIN_SIZE
@@ -311,3 +314,40 @@ def slic_wrapper(image, n_segments=5000, compactness=30, thresh=65, visualize=Fa
         cv2.waitKey()
 
     return segmented_image, merged_labels, number_of_regions
+
+
+def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, save_path: str = None):
+    x_min, x_max = np.min(points[:, 0]), np.max(points[:, 0])
+    y_min, y_max = np.min(points[:, 1]), np.max(points[:, 1])
+
+    x_interval = (x_max - x_min) / grid_size
+    y_interval = (y_max - y_min) / grid_size
+
+    grid = np.zeros((grid_size, grid_size))
+
+    for (grid_x, grid_y) in np.ndindex((grid_size, grid_size)):
+        temp = points[(x_min + grid_x * x_interval < points[:, 0]) & (points[:, 0] < x_min + (grid_x + 1) * x_interval) & (y_min + grid_y * y_interval < points[:, 1]) & (points[:, 1] < y_min + (grid_y + 1) * y_interval)]
+
+        if temp.size != 0:
+            grid[grid_x, grid_y] = np.mean(temp, axis=0)[2]
+
+    if save_path:
+        np.save(save_path, grid)
+
+    plt.imshow(grid, cmap='hot', interpolation='nearest')
+    plt.show()
+
+
+if __name__ == '__main__':
+    dem = np.load('output/dem.npy')
+
+    print(np.max(dem))
+    dem = dem - 4
+    # plt.imshow(dem, cmap='hot', interpolation='nearest')
+    ax = sns.heatmap(dem)
+    plt.show()
+    exit()
+
+    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Project\Moon Field 0306_1\4_Models\Accurate\Tile_0.ply")
+    points = np.asarray(pcd.points)
+    point_cloud_to_DEM(points, grid_size=500, save_path='output/dem.npy')
