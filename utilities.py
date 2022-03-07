@@ -19,6 +19,7 @@ import time
 
 # Third-party modules
 from scipy import ndimage
+from scipy.interpolate import griddata
 from skimage.segmentation import slic, mark_boundaries
 from skimage.measure import EllipseModel
 from skimage.future import graph
@@ -168,7 +169,7 @@ def ellipse_sparsing(ellipses):
 
                 if params == -1:
                     # new_size = ellipse_x[0] + ellipse_y[0]
-                    continue    # Too extreme?
+                    continue  # Too extreme?
                 else:
                     new_size = math.pi * params[2] * params[3]
 
@@ -316,6 +317,38 @@ def slic_wrapper(image, n_segments=5000, compactness=30, thresh=65, visualize=Fa
     return segmented_image, merged_labels, number_of_regions
 
 
+def interpolate_missing_pixels(image: np.ndarray, mask: np.ndarray, method: str = 'nearest', fill_value: int = 0):
+    """
+    :param image: a 2D image
+    :param mask: a 2D boolean image, True indicates missing values
+    :param method: interpolation method, one of
+        'nearest', 'linear', 'cubic'.
+    :param fill_value: which value to use for filling up data outside the
+        convex hull of known pixel values.
+        Default is 0, Has no effect for 'nearest'.
+    :return: the image with missing values interpolated
+    """
+
+    h, w = image.shape[:2]
+    xx, yy = np.meshgrid(np.arange(w), np.arange(h))
+
+    known_x = xx[~mask]
+    known_y = yy[~mask]
+    known_v = image[~mask]
+    missing_x = xx[mask]
+    missing_y = yy[mask]
+
+    interp_values = griddata(
+        (known_x, known_y), known_v, (missing_x, missing_y),
+        method=method, fill_value=fill_value
+    )
+
+    interp_image = image.copy()
+    interp_image[missing_y, missing_x] = interp_values
+
+    return interp_image
+
+
 def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, save_path: str = None):
     x_min, x_max = np.min(points[:, 0]), np.max(points[:, 0])
     y_min, y_max = np.min(points[:, 1]), np.max(points[:, 1])
@@ -326,10 +359,17 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, save_path: str 
     grid = np.zeros((grid_size, grid_size))
 
     for (grid_x, grid_y) in np.ndindex((grid_size, grid_size)):
-        temp = points[(x_min + grid_x * x_interval < points[:, 0]) & (points[:, 0] < x_min + (grid_x + 1) * x_interval) & (y_min + grid_y * y_interval < points[:, 1]) & (points[:, 1] < y_min + (grid_y + 1) * y_interval)]
+        temp = points[
+            (x_min + grid_x * x_interval < points[:, 0]) & (points[:, 0] < x_min + (grid_x + 1) * x_interval) & (
+                        y_min + grid_y * y_interval < points[:, 1]) & (
+                        points[:, 1] < y_min + (grid_y + 1) * y_interval)]
 
         if temp.size != 0:
             grid[grid_x, grid_y] = np.mean(temp, axis=0)[2]
+
+    empty_val_mask = grid == 0
+
+    grid = interpolate_missing_pixels(grid, empty_val_mask, 'linear')
 
     if save_path:
         np.save(save_path, grid)
@@ -337,17 +377,21 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, save_path: str 
     plt.imshow(grid, cmap='hot', interpolation='nearest')
     plt.show()
 
+    return grid
+
 
 if __name__ == '__main__':
     dem = np.load('output/dem.npy')
 
-    print(np.max(dem))
-    dem = dem - 4
-    # plt.imshow(dem, cmap='hot', interpolation='nearest')
-    ax = sns.heatmap(dem)
+    empty_val_mask = dem == 0
+
+    dem = interpolate_missing_pixels(dem, empty_val_mask, 'linear')
+    sns.color_palette("Spectral", as_cmap=True)
+    ax = sns.heatmap(dem, mask=(dem == 0), cmap='Spectral')
     plt.show()
+    # plt.savefig('dem_2000.png', dpi=1000)
     exit()
 
     pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Project\Moon Field 0306_1\4_Models\Accurate\Tile_0.ply")
     points = np.asarray(pcd.points)
-    point_cloud_to_DEM(points, grid_size=500, save_path='output/dem.npy')
+    point_cloud_to_DEM(points, grid_size=2000, save_path='output/dem_2000.npy')
