@@ -391,7 +391,7 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, interpolation: 
         np.save(save_path, grid)
 
     sns.color_palette("Spectral", as_cmap=True)
-    sns.heatmap(dem, mask=(dem == 0), cmap='Spectral')
+    sns.heatmap(grid, mask=(grid == 0), cmap='Spectral')
     plt.show()
 
     return grid
@@ -429,17 +429,17 @@ def DEM_find_local_outlier(grid: np.ndarray, plane_equation: list[float, float, 
 
 
 if __name__ == '__main__':
-    dem = np.load('output/dem.npy')
+    """    dem = np.load('output/dem.npy')
+    
+        empty_val_mask = dem == 0
+    
+        dem = interpolate_missing_pixels(dem, empty_val_mask, 'linear')
+        sns.color_palette("Spectral", as_cmap=True)
+        ax = sns.heatmap(dem, mask=(dem == 0), cmap='Spectral')
+        plt.show()
+        # plt.savefig('dem_2000.png', dpi=1000)
+        exit()"""
 
-    empty_val_mask = dem == 0
-
-    dem = interpolate_missing_pixels(dem, empty_val_mask, 'linear')
-    sns.color_palette("Spectral", as_cmap=True)
-    ax = sns.heatmap(dem, mask=(dem == 0), cmap='Spectral')
-    plt.show()
-    # plt.savefig('dem_2000.png', dpi=1000)
-    exit()
-
-    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Project\Moon Field 0306_1\4_Models\Accurate\Tile_0.ply")
+    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Desktop\04.ply")
     points = np.asarray(pcd.points)
-    point_cloud_to_DEM(points, grid_size=2000, save_path='output/dem_2000.npy')
+    point_cloud_to_DEM(points, grid_size=1000, save_path='output/dem_1000.npy')
