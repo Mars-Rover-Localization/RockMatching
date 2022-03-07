@@ -28,6 +28,7 @@ from cv2 import cv2
 import matplotlib.pyplot as plt
 import open3d as o3d
 import seaborn as sns
+from tqdm import tqdm
 
 # Local modules
 from config import ROCK_MIN_SIZE
@@ -349,7 +350,20 @@ def interpolate_missing_pixels(image: np.ndarray, mask: np.ndarray, method: str 
     return interp_image
 
 
-def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, save_path: str = None):
+def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, interpolation: str = 'linear', save_path: str = None) -> np.ndarray:
+    """
+    Generate DEM grid from point cloud data.
+
+    :param points: 3D points in (N, 3) shape
+    :param grid_size: The desired resolution (grid_size * grid_size) of generated DEM
+    :param interpolation: Optional, whether to perform interpolation to fill empty 'holes' inside DEM data. Pass None to disable this option.
+    :param save_path: Optional. String path to a .npy file if generated DEM needs to be saved locally.
+
+    :return: DEM array in shape (grid_size, grid_size)
+    """
+
+    assert interpolation in ['nearest', 'linear', 'cubic'], 'Invalid interpolation option'
+
     x_min, x_max = np.min(points[:, 0]), np.max(points[:, 0])
     y_min, y_max = np.min(points[:, 1]), np.max(points[:, 1])
 
@@ -358,7 +372,9 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, save_path: str 
 
     grid = np.zeros((grid_size, grid_size))
 
-    for (grid_x, grid_y) in np.ndindex((grid_size, grid_size)):
+    print("Generating grid...")
+
+    for (grid_x, grid_y) in tqdm(np.ndindex((grid_size, grid_size))):
         temp = points[
             (x_min + grid_x * x_interval < points[:, 0]) & (points[:, 0] < x_min + (grid_x + 1) * x_interval) & (
                         y_min + grid_y * y_interval < points[:, 1]) & (
@@ -367,14 +383,15 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, save_path: str 
         if temp.size != 0:
             grid[grid_x, grid_y] = np.mean(temp, axis=0)[2]
 
-    empty_val_mask = grid == 0
-
-    grid = interpolate_missing_pixels(grid, empty_val_mask, 'linear')
+    if interpolation:
+        empty_val_mask = grid == 0
+        grid = interpolate_missing_pixels(grid, empty_val_mask, interpolation)
 
     if save_path:
         np.save(save_path, grid)
 
-    plt.imshow(grid, cmap='hot', interpolation='nearest')
+    sns.color_palette("Spectral", as_cmap=True)
+    sns.heatmap(dem, mask=(dem == 0), cmap='Spectral')
     plt.show()
 
     return grid
