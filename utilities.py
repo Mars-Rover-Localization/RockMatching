@@ -9,7 +9,7 @@ GitHub: https://github.com/Mars-Rover-Localization/RockMatching
 
 Created May 2021
 
-Last modified December 2021
+Last modified February 2022
 """
 
 # Built-in modules
@@ -395,6 +395,37 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, interpolation: 
     plt.show()
 
     return grid
+
+
+def DEM_plane_fitting(grid: np.ndarray):
+    h, w = grid.shape
+
+    x, y = np.mgrid[:h, :w]
+
+    A = np.hstack((x.reshape((-1, 1)), y.reshape((-1, 1)), np.ones((h * w, 1))))
+
+    params = np.linalg.inv(A.transpose() @ A) @ A.transpose() @ grid.reshape((-1, 1)).transpose().tolist()
+
+    return params
+
+
+def DEM_find_local_outlier(grid: np.ndarray, plane_equation: list[float, float, float], epsilon: float = 1.25):
+    assert len(plane_equation) == 3, 'Invalid parameter'
+
+    a, b, c = plane_equation
+
+    h, w = grid.shape
+    x, y = np.mgrid[:h, :w]
+
+    fitted_values = a * x + b * y + c
+    diff = grid - fitted_values
+
+    mean, std = np.mean(diff), np.std(diff)
+
+    maxima = np.array(np.where(diff > mean + epsilon * std))
+    minima = np.array(np.where(diff < mean - epsilon * std))
+
+    return maxima, minima
 
 
 if __name__ == '__main__':
