@@ -404,12 +404,12 @@ def DEM_plane_fitting(grid: np.ndarray):
 
     A = np.hstack((x.reshape((-1, 1)), y.reshape((-1, 1)), np.ones((h * w, 1))))
 
-    params = np.linalg.inv(A.transpose() @ A) @ A.transpose() @ grid.reshape((-1, 1)).transpose().tolist()
+    params = (np.linalg.inv(A.transpose() @ A) @ A.transpose() @ grid.reshape((-1, 1))).flatten().tolist()
 
     return params
 
 
-def DEM_find_local_outlier(grid: np.ndarray, plane_equation: list[float, float, float], epsilon: float = 1.25):
+def DEM_find_local_outlier(grid: np.ndarray, plane_equation: list[float, float, float], epsilon: float = 3):
     assert len(plane_equation) == 3, 'Invalid parameter'
 
     a, b, c = plane_equation
@@ -429,17 +429,21 @@ def DEM_find_local_outlier(grid: np.ndarray, plane_equation: list[float, float, 
 
 
 if __name__ == '__main__':
-    """    dem = np.load('output/dem.npy')
-    
-        empty_val_mask = dem == 0
-    
-        dem = interpolate_missing_pixels(dem, empty_val_mask, 'linear')
-        sns.color_palette("Spectral", as_cmap=True)
-        ax = sns.heatmap(dem, mask=(dem == 0), cmap='Spectral')
-        plt.show()
-        # plt.savefig('dem_2000.png', dpi=1000)
-        exit()"""
+    # Test only
 
-    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Desktop\04.ply")
+    dem = np.load('output/dem_500_mer.npy')
+    poi = dem[200:400, 60:250]
+
+    params = DEM_plane_fitting(poi)
+    print(params)
+    maxima, minima = DEM_find_local_outlier(poi, params)
+    print(len(maxima[0]), len(minima[0]))
+    sns.heatmap(poi, cmap='Spectral')
+    plt.scatter(*maxima)
+    plt.show()
+
+    exit()
+
+    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Desktop\2n155309000xyl9600p0655l0m1.ply")
     points = np.asarray(pcd.points)
-    point_cloud_to_DEM(points, grid_size=1000, save_path='output/dem_1000.npy')
+    point_cloud_to_DEM(points, grid_size=500, save_path='output/dem_500_mer.npy')
