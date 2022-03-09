@@ -397,27 +397,38 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, interpolation: 
     return grid
 
 
-def DEM_plane_fitting(grid: np.ndarray):
+def DEM_surface_fitting(grid: np.ndarray, method: str = 'poly'):
+    assert method in ['poly', 'linear'], 'Invalid fitting method'
+
     h, w = grid.shape
 
     x, y = np.mgrid[:h, :w]
 
-    A = np.hstack((x.reshape((-1, 1)), y.reshape((-1, 1)), np.ones((h * w, 1))))
+    x, y = x.reshape((-1, 1)), y.reshape((-1, 1))
+
+    if method == 'poly':
+        A = np.hstack((x ** 2, y ** 2, x * y, x, y, np.ones((h * w, 1))))
+    else:
+        A = np.hstack((x, y, np.ones((h * w, 1))))
 
     params = (np.linalg.inv(A.transpose() @ A) @ A.transpose() @ grid.reshape((-1, 1))).flatten().tolist()
 
     return params
 
 
-def DEM_find_local_outlier(grid: np.ndarray, plane_equation: list[float, float, float], epsilon: float = 3):
-    assert len(plane_equation) == 3, 'Invalid parameter'
-
-    a, b, c = plane_equation
+def DEM_find_local_outlier(grid: np.ndarray, surface_equation: list[float, float, float], epsilon: float = 2):
+    assert len(surface_equation) in [3, 6], 'Invalid parameter'
 
     h, w = grid.shape
     x, y = np.mgrid[:h, :w]
 
-    fitted_values = a * x + b * y + c
+    if len(surface_equation) == 6:
+        a, b, c, d, e, f = surface_equation
+        fitted_values = a * (x ** 2) + b * (y ** 2) + c * x * y + d * x + e * y + f
+    else:
+        a, b, c = surface_equation
+        fitted_values = a * x + b * y + c
+
     diff = grid - fitted_values
 
     mean, std = np.mean(diff), np.std(diff)
@@ -431,10 +442,10 @@ def DEM_find_local_outlier(grid: np.ndarray, plane_equation: list[float, float, 
 if __name__ == '__main__':
     # Test only
 
-    dem = np.load('output/dem_500_mer.npy')
-    poi = dem[200:400, 60:250]
+    dem = np.load('output/dem_1000.npy')
+    poi = dem[200:700, 300:600]
 
-    params = DEM_plane_fitting(poi)
+    params = DEM_surface_fitting(poi, method='poly')
     print(params)
     maxima, minima = DEM_find_local_outlier(poi, params)
     print(len(maxima[0]), len(minima[0]))
@@ -444,6 +455,6 @@ if __name__ == '__main__':
 
     exit()
 
-    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Desktop\2n155309000xyl9600p0655l0m1.ply")
+    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Project\Moon Field 0306_1\4_Models\Accurate\Tile_0.ply")
     points = np.asarray(pcd.points)
-    point_cloud_to_DEM(points, grid_size=500, save_path='output/dem_500_mer.npy')
+    point_cloud_to_DEM(points, grid_size=1000, save_path='output/dem_1000.npy')
