@@ -350,7 +350,8 @@ def interpolate_missing_pixels(image: np.ndarray, mask: np.ndarray, method: str 
     return interp_image
 
 
-def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, interpolation: str = 'linear', save_path: str = None) -> np.ndarray:
+def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, interpolation: str = 'linear',
+                       save_path: str = None) -> np.ndarray:
     """
     Generate DEM grid from point cloud data.
 
@@ -377,8 +378,8 @@ def point_cloud_to_DEM(points: np.ndarray, grid_size: int = 500, interpolation: 
     for (grid_x, grid_y) in tqdm(np.ndindex((grid_size, grid_size))):
         temp = points[
             (x_min + grid_x * x_interval < points[:, 0]) & (points[:, 0] < x_min + (grid_x + 1) * x_interval) & (
-                        y_min + grid_y * y_interval < points[:, 1]) & (
-                        points[:, 1] < y_min + (grid_y + 1) * y_interval)]
+                    y_min + grid_y * y_interval < points[:, 1]) & (
+                    points[:, 1] < y_min + (grid_y + 1) * y_interval)]
 
         if temp.size != 0:
             grid[grid_x, grid_y] = np.mean(temp, axis=0)[2]
@@ -439,18 +440,54 @@ def DEM_find_local_outlier(grid: np.ndarray, surface_equation: list[float, float
     return maxima, minima
 
 
+def DEM_find_global_outlier(dem: np.ndarray, split_resolution: int = 10):
+    h, w = dem.shape
+
+    h_step, w_step = h // split_resolution, w // split_resolution
+    window_area = h_step * w_step
+
+    max_loc, min_loc = [], []
+
+    for i, j in np.ndindex((split_resolution, split_resolution)):
+        window = dem[h_step * i: h_step * (i + 1), w_step * j: w_step * (j + 1)]
+
+        if np.count_nonzero(window) != window_area:
+            continue
+
+        window_surface_eq = DEM_surface_fitting(window, method='poly')
+
+        window_max, window_min = DEM_find_local_outlier(window, window_surface_eq, 5)
+
+        window_max[0, :] += h_step * i
+        window_max[1, :] += w_step * j
+
+        window_min[0, :] += h_step * i
+        window_min[1, :] += w_step * j
+
+        max_loc.append(window_max)
+        min_loc.append(window_min)
+
+    max_loc = np.hstack(max_loc)
+    min_loc = np.hstack(min_loc)
+
+    return max_loc, min_loc
+
+
 if __name__ == '__main__':
     # Test only
 
     dem = np.load('output/dem_1000.npy')
-    poi = dem[200:700, 300:600]
+    # dem = np.load(r"C:\Users\Lincoln\Desktop\test.npy")   # dummy DEM data for testing coordinate systems
+    # poi = dem[200:700, 300:600]
 
-    params = DEM_surface_fitting(poi, method='poly')
-    print(params)
-    maxima, minima = DEM_find_local_outlier(poi, params)
-    print(len(maxima[0]), len(minima[0]))
-    sns.heatmap(poi, cmap='Spectral')
-    plt.scatter(*maxima)
+    maxima, minima = DEM_find_global_outlier(dem, split_resolution=10)
+
+    plt.figure(figsize=(12, 9))
+    sns.heatmap(dem, cmap='Spectral', mask=(dem == 0), square=True)
+
+    plt.scatter(*maxima[::-1], label='MAX')     # Notice the difference between xy axis order here
+    # plt.scatter(*minima, label='MIN')
+    plt.legend()
     plt.show()
 
     exit()
