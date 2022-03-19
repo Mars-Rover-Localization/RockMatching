@@ -43,7 +43,7 @@ def expand_points(location, params):
     return np.array(res_pts)
 
 
-def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: Tuple[float, float, float] = None, max_dist: int = 100, max_iter: int = 2000, vis: bool = True):
+def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: Tuple[float, float, float] = None, max_dist: float = 100, max_iter: int = 2000, vis: bool = True):
     """
     Wrapper method for Open3D library ICP implementation.
 
@@ -113,6 +113,30 @@ def open3d_icp_wrapper(template: np.ndarray, data: np.ndarray, initial_values: T
         plt.savefig('output/vis.png', dpi=400)
         plt.show()
 
+    return transformation, aligned, reg_p2p
+
+
+def brute_force_ICP(template: np.ndarray, data: np.ndarray, n: int = 2):
+    template, template_scaler = utl.scale_point_cloud(template)
+    data, data_scaler = utl.scale_point_cloud(data)
+
+    results, scores = [], []
+
+    for i in range(n):
+        for j in range(n):
+            transformation, aligned, reg_p2p = open3d_icp_wrapper(template, data, initial_values=(i / n, j / n, 0), max_dist=0.5, vis=False)
+
+            results.append((transformation, aligned, reg_p2p.correspondence_set))
+            scores.append(reg_p2p.fitness)
+
+    best_index = np.argmax(scores)
+    best_res = results[best_index]
+
+    print(f"Best ICP registration found, fitness: {scores[best_index]} result:\n")
+    print(best_res[2])
+
+    return best_res
+
 
 if __name__ == '__main__':
     best_pt_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater\runs\train\exp5\weights\best.pt"
@@ -124,4 +148,5 @@ if __name__ == '__main__':
     template = expand_points(location[0], params[0])
     data = expand_points(location[1], params[1])
 
-    open3d_icp_wrapper(template, data, initial_values=(500, 400, 0), vis=True)
+    # open3d_icp_wrapper(template, data, initial_values=(500, 400, 0), vis=True)
+    brute_force_ICP(template, data)

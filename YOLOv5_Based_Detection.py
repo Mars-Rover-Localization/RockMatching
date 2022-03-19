@@ -3,10 +3,13 @@ This script contains method for crater detection using YOLOv5 framework.
 Copyright 2022 Lincoln Zhou, zhoulang731@tongji.edu.cn
 """
 
-
 import torch
+import cv2
+import numpy as np
 
 import os
+
+from utilities import draw_marker
 
 
 def crater_detection(images, weight_path: str, yolov5_path: str):
@@ -93,8 +96,12 @@ def rock_detection(image: str, weight_path: str, yolov5_path: str, image_size: i
 
 
 if __name__ == '__main__':
-    rock_detection('sample/Explorer_HD1080_SN22734452_09-07-19.png', weight_path='sample/rock_v1.pt',
-                   yolov5_path=r"C:\Users\Lincoln\Development\ML\yolov5_rock", image_size=1920)
+    rock_locs = np.array(
+        rock_detection('sample/Explorer_HD1080_SN22734452_09-07-19.png', weight_path='sample/rock_v1.pt',
+                       yolov5_path=r"C:\Users\Lincoln\Development\ML\yolov5_rock", image_size=1920)[0])
+    img = draw_marker(cv2.imread('sample/Explorer_HD1080_SN22734452_09-07-19.png'), rock_locs)
+    cv2.imshow('res', img)
+    cv2.waitKey(0)
     exit()
 
     test_folder_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater\test\images"
@@ -102,4 +109,5 @@ if __name__ == '__main__':
     yolov5_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater"
     test_images = os.listdir(test_folder_path)
 
-    print(crater_detection([os.path.join(test_folder_path, x) for x in test_images], weight_path=best_pt_path, yolov5_path=yolov5_path))
+    print(crater_detection([os.path.join(test_folder_path, x) for x in test_images], weight_path=best_pt_path,
+                           yolov5_path=yolov5_path))

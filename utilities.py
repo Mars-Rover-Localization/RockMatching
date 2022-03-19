@@ -20,6 +20,7 @@ import time
 # Third-party modules
 from scipy import ndimage
 from scipy.interpolate import griddata
+from sklearn.preprocessing import MinMaxScaler
 from skimage.segmentation import slic, mark_boundaries
 from skimage.measure import EllipseModel
 from skimage.future import graph
@@ -471,6 +472,23 @@ def DEM_find_global_outlier(dem: np.ndarray, split_resolution: int = 10):
     min_loc = np.hstack(min_loc)
 
     return max_loc, min_loc
+
+
+def draw_marker(img: np.ndarray, locations: np.ndarray):
+    assert locations.shape[1] == 2 and len(locations.shape) == 2, 'Invalid location data'
+
+    for location in locations:
+        img = cv2.drawMarker(img, position=location, color=(0, 255, 0), markerType=cv2.MARKER_TRIANGLE_UP, markerSize=20, thickness=5)
+
+    return img
+
+
+def scale_point_cloud(points: np.ndarray):
+    assert points.shape[1] == 2, 'Invalid input data shape'
+
+    scaler = MinMaxScaler()
+
+    return scaler.fit_transform(points), scaler
 
 
 if __name__ == '__main__':
