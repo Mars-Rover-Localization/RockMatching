@@ -9,7 +9,7 @@ GitHub: https://github.com/Mars-Rover-Localization/RockMatching
 
 Created May 2021
 
-Last modified February 2022
+Last modified April 2022
 """
 
 # Built-in modules
@@ -531,8 +531,6 @@ if __name__ == '__main__':
     # Test only
 
     data = np.load('sample/rock_loc.npy')
-
-    data[11] = np.array([682, 120, 629, 117])
 
     camera_param = np.array([1059.19, 994.56, 549.37, 120])
 
