@@ -4,7 +4,7 @@ Copyright 2022 Lincoln Zhou, zhoulang731@tongji.edu.cn
 """
 
 import torch
-import cv2
+from cv2 import cv2
 import numpy as np
 
 import os
@@ -97,11 +97,15 @@ def rock_detection(image: str, weight_path: str, yolov5_path: str, image_size: i
 
 if __name__ == '__main__':
     rock_locs = np.array(
-        rock_detection('sample/Explorer_HD1080_SN22734452_09-07-19.png', weight_path='sample/rock_v1.pt',
+        rock_detection(r"C:\Users\Lincoln\Desktop\r.png", weight_path='sample/rock_v1.pt',
                        yolov5_path=r"C:\Users\Lincoln\Development\ML\yolov5_rock", image_size=1920)[0])
-    img = draw_marker(cv2.imread('sample/Explorer_HD1080_SN22734452_09-07-19.png'), rock_locs)
-    cv2.imshow('res', img)
-    cv2.waitKey(0)
+    # img = draw_marker(cv2.imread('sample/Explorer_HD1080_SN22734452_09-07-19.png'), rock_locs)
+    img = cv2.imread(r"C:\Users\Lincoln\Desktop\r.png")
+
+    for loc in rock_locs:
+        img = cv2.putText(img, f"{loc[0]}, {loc[1]}", loc, cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.85, thickness=1, color=(0, 255, 0))
+
+    cv2.imwrite(r"C:\Users\Lincoln\Desktop\r_d.png", img)
     exit()
 
     test_folder_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater\test\images"

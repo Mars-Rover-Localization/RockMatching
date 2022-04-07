@@ -491,25 +491,55 @@ def scale_point_cloud(points: np.ndarray):
     return scaler.fit_transform(points), scaler
 
 
+def compute_stereo_3d_coord(points: np.ndarray, camera_param: np.ndarray) -> np.ndarray:
+    """
+    Compute 3D coordinates from corresponding points on a RECTIFIED stereo pair.
+
+    :param points: (N, 4) array of left and right image pixel coordinate
+    :param camera_param: (4, ) array of (f, cx, cy, stereo_baseline)
+    :return: (N, 3) array of 3D coordinates
+    """
+
+    assert len(camera_param) == 4, 'Invalid camera parameters'
+    assert points.shape[1] == 4, 'Invalid points data shape'
+
+    f, cx, cy, baseline = camera_param.flatten()
+
+    results = []
+
+    for index in range(points.shape[0]):
+        x1, y1, x2, y2 = points[index]
+
+        x1 -= cx
+        x2 -= cx
+
+        y1 = cy - y1
+        # y2 = cy - y2  # We assume y1 = y2 since the stereo pair is rectified
+
+        disparity = x1 - x2
+
+        X = baseline * x1 / disparity
+        Y = baseline * y1 / disparity
+        Z = baseline * f / disparity
+
+        results.append([X, Y, Z])
+
+    return np.array(results)
+
+
 if __name__ == '__main__':
     # Test only
 
-    dem = np.load('output/dem_1000.npy')
-    # dem = np.load(r"C:\Users\Lincoln\Desktop\test.npy")   # dummy DEM data for testing coordinate systems
-    # poi = dem[200:700, 300:600]
+    data = np.load('sample/rock_loc.npy')
 
-    maxima, minima = DEM_find_global_outlier(dem, split_resolution=10)
+    data[11] = np.array([682, 120, 629, 117])
 
-    plt.figure(figsize=(12, 9))
-    sns.heatmap(dem, cmap='Spectral', mask=(dem == 0), square=True)
+    camera_param = np.array([1059.19, 994.56, 549.37, 120])
 
-    plt.scatter(*maxima[::-1], label='MAX')     # Notice the difference between xy axis order here
-    # plt.scatter(*minima, label='MIN')
-    plt.legend()
+    res = compute_stereo_3d_coord(data, camera_param)
+
+    print(res)
+
+    plt.scatter(*res[:, :2].transpose())
+
     plt.show()
-
-    exit()
-
-    pcd = o3d.io.read_point_cloud(r"C:\Users\Lincoln\Project\Moon Field 0306_1\4_Models\Accurate\Tile_0.ply")
-    points = np.asarray(pcd.points)
-    point_cloud_to_DEM(points, grid_size=1000, save_path='output/dem_1000.npy')
