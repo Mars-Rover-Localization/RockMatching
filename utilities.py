@@ -495,36 +495,77 @@ def compute_stereo_3d_coord(points: np.ndarray, camera_param: np.ndarray) -> np.
     """
     Compute 3D coordinates from corresponding points on a RECTIFIED stereo pair.
 
-    :param points: (N, 4) array of left and right image pixel coordinate
+    :param points: (N, 4) array of left and right image pixel coordinate, in order of (x, y, x, y)
     :param camera_param: (4, ) array of (f, cx, cy, stereo_baseline)
     :return: (N, 3) array of 3D coordinates
     """
 
-    assert len(camera_param) == 4, 'Invalid camera parameters'
+    # assert len(camera_param) == 4, 'Invalid camera parameters'
     assert points.shape[1] == 4, 'Invalid points data shape'
 
-    f, cx, cy, baseline = camera_param.flatten()
+    # f, cx, cy, baseline = camera_param.flatten()
+    l_f, l_cx, l_cy, r_f, r_cx, r_cy, baseline = camera_param.flatten()
 
     results = []
 
     for index in range(points.shape[0]):
         x1, y1, x2, y2 = points[index]
 
-        x1 -= cx
-        x2 -= cx
+        x1 -= l_cx
+        x2 -= r_cx
 
-        y1 = cy - y1
-        # y2 = cy - y2  # We assume y1 = y2 since the stereo pair is rectified
+        y1 = l_cy - y1
+        y2 = r_cy - y2  # We assume y1 = y2 since the stereo pair is rectified
 
         disparity = x1 - x2
 
         X = baseline * x1 / disparity
-        Y = baseline * y1 / disparity
-        Z = baseline * f / disparity
+
+        Z = baseline * l_f / disparity
+
+        Y = 0.5 * baseline * (y1 + y2) / disparity + 0.2 * Z
 
         results.append([X, Y, Z])
 
     return np.array(results)
+
+
+def rescale_uav_points(points: np.ndarray, height: float, f: float, pixel_size_x, pixel_size_y):
+    for index in range(points.shape[0]):
+        x, y = points[index]
+
+        points[index, 0] = height * x * pixel_size_x / f
+        points[index, 1] = height * y * pixel_size_y / f
+
+    return points
+
+
+def get_affine_transform(src: np.ndarray, dst: np.ndarray):
+    assert src.shape == dst.shape, 'Invalid input shape'
+
+    A = np.hstack((src, np.ones((src.shape[0], 1))))
+    B1, B2 = dst[:, 0], dst[:, 1]
+
+    X_t = np.linalg.lstsq(A, B1, rcond=None)[0]
+    Y_t = np.linalg.lstsq(A, B2, rcond=None)[0]
+
+    return np.vstack((X_t.transpose(), Y_t.transpose()))
+
+
+def apply_affine_transform(src: np.ndarray, transform: np.ndarray):
+    a, b, c, d, e, f = transform.flatten()
+
+    res = []
+
+    for pt in src:
+        x, y = pt.flatten()
+
+        t_x = a * x + b * y + c
+        t_y = d * x + e * y + f
+
+        res.append([t_x, t_y])
+
+    return np.array(res)
 
 
 if __name__ == '__main__':
@@ -540,4 +581,9 @@ if __name__ == '__main__':
 
     plt.scatter(*res[:, :2].transpose())
 
+    for index in range(res.shape[0]):
+        plt.text(res[index, 0], res[index, 1], f"{res[index]}")
+
     plt.show()
+
+

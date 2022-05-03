@@ -56,56 +56,54 @@ def crater_detection(images, weight_path: str, yolov5_path: str):
     return detection_result_loc, detection_result_parm
 
 
-def rock_detection(image: str, weight_path: str, yolov5_path: str, image_size: int = 1280):
+def rock_detection(image: str, weight_path: str, yolov5_path: str, image_size: int = 1280, conf_thres: float = 0.45, verbose: bool = False) -> np.ndarray:
     """
     Detect crater using trained YOLOv5 model file
     :param image: image path (str)
     :param weight_path: YOLOv5 model parameters file's path
     :param yolov5_path: YOLOv5 folder path
     :param image_size: Image size for YOLO detection, default value suits most close-view photos, for large DOM image please choose a suitable value (preferably 2^n)
-    :return: [[[center_x, center_y]]]
+    :param conf_thres: Confidence threshold, default as 0.45
+    :param verbose: Pass True to allow all display and print methods, default as False
+    :return: (N, 2) size np.ndarray
     """
 
     try:
         model = torch.hub.load(yolov5_path, 'custom', path=weight_path, source='local')
-        model.conf = 0.45
+        model.conf = conf_thres
     except:
         print("Model file cannot be loaded, stop.")
-        return
+        exit()
 
     detection_result_loc = []
 
     result = model(image, size=image_size)
-    result.print()
-    result.show()
+
+    if verbose:
+        result.print()
+        result.show()
 
     result = result.pandas().xyxy[0]
     print(result)
-
-    current_image_result_loc = []
 
     for row in result.itertuples(index=True, name='Pandas'):
         center_x = int((row.xmin + row.xmax) / 2)
         center_y = int((row.ymin + row.ymax) / 2)
 
-        current_image_result_loc.append([center_x, center_y])
+        detection_result_loc.append([center_x, center_y])
 
-    detection_result_loc.append(current_image_result_loc)
-
-    return detection_result_loc
+    return np.array(detection_result_loc)
 
 
 if __name__ == '__main__':
-    rock_locs = np.array(
-        rock_detection(r"C:\Users\Lincoln\Desktop\r.png", weight_path='sample/rock_v1.pt',
-                       yolov5_path=r"C:\Users\Lincoln\Development\ML\yolov5_rock", image_size=1920)[0])
+    rock_locs = rock_detection("sample/102r.png", weight_path='sample/rock_v1.pt', yolov5_path=r"C:\Users\Lincoln\Development\ML\yolov5_rock", image_size=1920)
     # img = draw_marker(cv2.imread('sample/Explorer_HD1080_SN22734452_09-07-19.png'), rock_locs)
-    img = cv2.imread(r"C:\Users\Lincoln\Desktop\r.png")
+    img = cv2.imread("sample/102r.png")
 
     for loc in rock_locs:
         img = cv2.putText(img, f"{loc[0]}, {loc[1]}", loc, cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.85, thickness=1, color=(0, 255, 0))
 
-    cv2.imwrite(r"C:\Users\Lincoln\Desktop\r_d.png", img)
+    cv2.imwrite(r"C:\Users\Lincoln\Desktop\right.png", img)
     exit()
 
     test_folder_path = r"C:\Users\Lincoln\Development\ML\yolov5_crater\test\images"
